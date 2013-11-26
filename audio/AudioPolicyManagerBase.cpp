@@ -1495,7 +1495,7 @@ AudioPolicyManagerBase::AudioPolicyManagerBase(AudioPolicyClientInterface *clien
     mPrimaryOutput((audio_io_handle_t)0),
     mAvailableOutputDevices(AUDIO_DEVICE_NONE),
     mPhoneState(AudioSystem::MODE_NORMAL),
-    mLimitRingtoneVolume(false), mLastVoiceVolume(-1.0f),
+    mLimitRingtoneVolume(false), mLastVoiceVolume(-1.0f), mLastFMVolume(-1.0f),
     mTotalEffectsCpuLoad(0), mTotalEffectsMemory(0),
     mA2dpSuspended(false), mHasA2dp(false), mHasUsb(false), mHasRemoteSubmix(false)
 {
@@ -2164,6 +2164,7 @@ void AudioPolicyManagerBase::checkA2dpSuspend()
              ((mForceUse[AudioSystem::FOR_COMMUNICATION] != AudioSystem::FORCE_BT_SCO) &&
               (mForceUse[AudioSystem::FOR_RECORD] != AudioSystem::FORCE_BT_SCO))) &&
              ((mPhoneState != AudioSystem::MODE_IN_CALL) &&
+    	      (mPhoneState != AudioSystem::MODE_FACTORY_TEST) &&
               (mPhoneState != AudioSystem::MODE_RINGTONE))) {
 
             mpClientInterface->restoreOutput(a2dpOutput);
@@ -2258,6 +2259,8 @@ AudioPolicyManagerBase::routing_strategy AudioPolicyManagerBase::getStrategy(
         // while key clicks are played produces a poor result
     case AudioSystem::TTS:
     case AudioSystem::MUSIC:
+
+    case AudioSystem::FM:
         return STRATEGY_MEDIA;
     case AudioSystem::ENFORCED_AUDIBLE:
         return STRATEGY_ENFORCED_AUDIBLE;
@@ -2440,6 +2443,10 @@ audio_devices_t AudioPolicyManagerBase::getDeviceForStrategy(routing_strategy st
             if (device2 == AUDIO_DEVICE_NONE) {
                 device2 = mAvailableOutputDevices & AUDIO_DEVICE_OUT_BLUETOOTH_A2DP_SPEAKER;
             }
+        }
+        if ((mPhoneState == AudioSystem::MODE_FM) && (mForceUse[AudioSystem::FOR_COMMUNICATION] == AudioSystem::FORCE_SPEAKER)){//lkj
+		    device = mAvailableOutputDevices & AUDIO_DEVICE_OUT_SPEAKER;
+		    if (device) break;
         }
         if (device2 == AUDIO_DEVICE_NONE) {
             device2 = mAvailableOutputDevices & AUDIO_DEVICE_OUT_WIRED_HEADPHONE;
@@ -2661,6 +2668,7 @@ audio_devices_t AudioPolicyManagerBase::getDeviceForInputSource(int inputSource)
 
     case AUDIO_SOURCE_DEFAULT:
     case AUDIO_SOURCE_MIC:
+    case AUDIO_SOURCE_FM:
     case AUDIO_SOURCE_VOICE_RECOGNITION:
     case AUDIO_SOURCE_HOTWORD:
     case AUDIO_SOURCE_VOICE_COMMUNICATION:
@@ -2671,6 +2679,8 @@ audio_devices_t AudioPolicyManagerBase::getDeviceForInputSource(int inputSource)
             device = AUDIO_DEVICE_IN_WIRED_HEADSET;
         } else if (mAvailableInputDevices & AUDIO_DEVICE_IN_BUILTIN_MIC) {
             device = AUDIO_DEVICE_IN_BUILTIN_MIC;
+        } else if (mAvailableInputDevices & AUDIO_DEVICE_IN_FM) {
+            device = AudioSystem::DEVICE_IN_BUILTIN_MIC;
         }
         break;
     case AUDIO_SOURCE_CAMCORDER:
@@ -2917,6 +2927,12 @@ const AudioPolicyManagerBase::VolumeCurvePoint
         sSpeakerMediaVolumeCurve, // DEVICE_CATEGORY_SPEAKER
         sDefaultMediaVolumeCurve  // DEVICE_CATEGORY_EARPIECE
     },
+    { // AUDIO_STREAM_FM
+        sHeadsetSystemVolumeCurve, // DEVICE_CATEGORY_HEADSET
+        sDefaultSystemVolumeCurve, // DEVICE_CATEGORY_SPEAKER
+        sDefaultSystemVolumeCurve  // DEVICE_CATEGORY_EARPIECE
+
+    },
 };
 
 void AudioPolicyManagerBase::initializeVolumeCurves()
@@ -3029,6 +3045,18 @@ status_t AudioPolicyManagerBase::checkAndSetVolume(int stream,
         if (stream == AudioSystem::BLUETOOTH_SCO) {
             mpClientInterface->setStreamVolume(AudioSystem::VOICE_CALL, volume, output, delayMs);
         }
+
+    if (stream == AudioSystem::FM){
+        float fmVolume;
+		fmVolume = (float)index/(float)mStreams[stream].mIndexMax;
+		if (fmVolume != mLastFMVolume) {
+    	    ALOGVV("checkAndSetVolume() lkj 333");
+            mpClientInterface->setVoiceVolume(fmVolume, delayMs);
+            mLastFMVolume = fmVolume;
+		}
+	    return NO_ERROR;
+     }
+
         mpClientInterface->setStreamVolume((AudioSystem::stream_type)stream, volume, output, delayMs);
     }
 
@@ -3172,6 +3200,7 @@ bool AudioPolicyManagerBase::isInCall()
 
 bool AudioPolicyManagerBase::isStateInCall(int state) {
     return ((state == AudioSystem::MODE_IN_CALL) ||
+    	    (state == AudioSystem::MODE_FACTORY_TEST) ||
             (state == AudioSystem::MODE_IN_COMMUNICATION));
 }
 
@@ -3607,6 +3636,7 @@ const struct StringToEnum sDeviceNameToEnumTable[] = {
     STRING_TO_ENUM(AUDIO_DEVICE_IN_ANLG_DOCK_HEADSET),
     STRING_TO_ENUM(AUDIO_DEVICE_IN_DGTL_DOCK_HEADSET),
     STRING_TO_ENUM(AUDIO_DEVICE_IN_USB_ACCESSORY),
+    STRING_TO_ENUM(AUDIO_DEVICE_IN_FM),
 };
 
 const struct StringToEnum sFlagNameToEnumTable[] = {
@@ -3637,6 +3667,9 @@ const struct StringToEnum sInChannelsNameToEnumTable[] = {
     STRING_TO_ENUM(AUDIO_CHANNEL_IN_MONO),
     STRING_TO_ENUM(AUDIO_CHANNEL_IN_STEREO),
     STRING_TO_ENUM(AUDIO_CHANNEL_IN_FRONT_BACK),
+    STRING_TO_ENUM(AUDIO_CHANNEL_IN_VOICE_UPLINK),
+    STRING_TO_ENUM(AUDIO_CHANNEL_IN_VOICE_DNLINK),
+    STRING_TO_ENUM(AUDIO_CHANNEL_IN_VOICE),
 };
 
 
