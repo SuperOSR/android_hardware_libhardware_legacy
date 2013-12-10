@@ -125,7 +125,11 @@ static char primary_iface[PROPERTY_VALUE_MAX];
 #ifndef WIFI_FIRMWARE_LOADER
 #define WIFI_FIRMWARE_LOADER		""
 #endif
+#ifdef TARGET_BOARD_FIBER
 #define WIFI_TEST_INTERFACE		"wlan0" // setprop wifi.interface wlan0
+#else
+#define WIFI_TEST_INTERFACE		"sta"
+#endif
 
 #ifndef WIFI_DRIVER_FW_PATH_STA
 #define WIFI_DRIVER_FW_PATH_STA		NULL
@@ -346,14 +350,18 @@ int wifi_load_driver()
         return 0;
     }
 
-	ALOGD("Begin to insmod %s %s firmware!", DRIVER_MODULE_PATH, DRIVER_MODULE_ARG);
-    if (insmod(DRIVER_MODULE_PATH, DRIVER_MODULE_ARG) < 0) {
-        ALOGE("insmod %s %s firmware failed!", DRIVER_MODULE_PATH, DRIVER_MODULE_ARG);
+    if (insmod(DRIVER_MODULE_PATH, DRIVER_MODULE_ARG) < 0)
+#ifdef TARGET_BOARD_FIBER
+    {
         rmmod(DRIVER_MODULE_NAME);//it may be load driver already,try remove it.
+#endif
+#ifdef TARGET_BOARD_FIBER
         return -1;
     }
+#endif
 
     if (strcmp(FIRMWARE_LOADER,"") == 0) {
+#ifdef TARGET_BOARD_FIBER
 		char tmp_buf[200] = {0};
 		FILE *profs_entry = NULL;
 		int try_time = 0;
@@ -383,6 +391,10 @@ int wifi_load_driver()
 	        profs_entry = NULL;
 			usleep(200000);
 		}while(try_time++ <= TIME_COUNT);// 4 seconds
+#else
+        /* usleep(WIFI_DRIVER_LOADER_DELAY); */
+        property_set(DRIVER_PROP_NAME, "ok");
+#endif
     }
     else {
         property_set("ctl.start", FIRMWARE_LOADER);
@@ -749,12 +761,16 @@ int wifi_stop_supplicant(int p2p_supported)
     return -1;
 }
 
+#ifdef TARGET_BOARD_FIBER
 #define SUPPLICANT_TIMEOUT      3000000  // microseconds
 #define SUPPLICANT_TIMEOUT_STEP  100000  // microseconds
+#endif
 int wifi_connect_on_socket_path(const char *path)
 {
     char supp_status[PROPERTY_VALUE_MAX] = {'\0'};
+#ifdef TARGET_BOARD_FIBER
     int  supplicant_timeout = SUPPLICANT_TIMEOUT;
+#endif
 
     /* Make sure supplicant is running */
     if (!property_get(supplicant_prop_name, supp_status, NULL)
@@ -764,11 +780,13 @@ int wifi_connect_on_socket_path(const char *path)
     }
 
     ctrl_conn = wpa_ctrl_open(path);
+#ifdef TARGET_BOARD_FIBER
     while (ctrl_conn == NULL && supplicant_timeout > 0) {
         usleep(SUPPLICANT_TIMEOUT_STEP);
         supplicant_timeout -= SUPPLICANT_TIMEOUT_STEP;
         ctrl_conn = wpa_ctrl_open(path);
     }
+#endif
     if (ctrl_conn == NULL) {
         ALOGE("Unable to open connection to supplicant on \"%s\": %s",
              path, strerror(errno));
@@ -994,9 +1012,6 @@ int wifi_change_fw_path(const char *fwpath)
     int fd;
     int ret = 0;
 
-    ALOGD("Eneter: %s, fwpath = %s.\n", __FUNCTION__, fwpath);
-
-#ifndef RTL_WIFI_VENDOR
     if (!fwpath)
         return ret;
     fd = TEMP_FAILURE_RETRY(open(WIFI_DRIVER_FW_PATH_PARAM, O_WRONLY));
@@ -1010,6 +1025,5 @@ int wifi_change_fw_path(const char *fwpath)
         ret = -1;
     }
     close(fd);
-#endif
     return ret;
 }

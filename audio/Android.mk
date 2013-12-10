@@ -27,6 +27,10 @@ ifeq ($(AUDIO_POLICY_TEST),true)
   LOCAL_CFLAGS += -DAUDIO_POLICY_TEST
 endif
 
+ifeq ($(TARGET_BOARD_PLATFORM), fiber)
+    LOCAL_CFLAGS += -DTARGET_BOARD_FIBER
+endif
+
 LOCAL_STATIC_LIBRARIES := libmedia_helper
 LOCAL_MODULE := libaudiopolicy_legacy
 LOCAL_MODULE_TAGS := optional

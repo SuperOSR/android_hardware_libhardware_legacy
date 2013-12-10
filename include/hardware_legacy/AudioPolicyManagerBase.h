@@ -535,7 +535,9 @@ protected:
         bool    mLimitRingtoneVolume;                                       // limit ringtone volume to music volume if headset connected
         audio_devices_t mDeviceForStrategy[NUM_STRATEGIES];
         float   mLastVoiceVolume;                                           // last voice volume value sent to audio HAL
+#ifdef TARGET_BOARD_FIBER
         float   mLastFMVolume;                                           // last voice volume value sent to audio HAL
+#endif
 
         // Maximum CPU load allocated to audio effects in 0.1 MIPS (ARMv5TE, 0 WS memory) units
         static const uint32_t MAX_EFFECTS_CPU_LOAD = 1000;

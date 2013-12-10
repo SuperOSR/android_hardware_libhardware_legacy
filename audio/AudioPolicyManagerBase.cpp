@@ -1495,7 +1495,10 @@ AudioPolicyManagerBase::AudioPolicyManagerBase(AudioPolicyClientInterface *clien
     mPrimaryOutput((audio_io_handle_t)0),
     mAvailableOutputDevices(AUDIO_DEVICE_NONE),
     mPhoneState(AudioSystem::MODE_NORMAL),
-    mLimitRingtoneVolume(false), mLastVoiceVolume(-1.0f), mLastFMVolume(-1.0f),
+    mLimitRingtoneVolume(false), mLastVoiceVolume(-1.0f),
+#ifdef TARGET_BOARD_FIBER
+    mLastFMVolume(-1.0f),
+#endif
     mTotalEffectsCpuLoad(0), mTotalEffectsMemory(0),
     mA2dpSuspended(false), mHasA2dp(false), mHasUsb(false), mHasRemoteSubmix(false)
 {
@@ -2164,7 +2167,9 @@ void AudioPolicyManagerBase::checkA2dpSuspend()
              ((mForceUse[AudioSystem::FOR_COMMUNICATION] != AudioSystem::FORCE_BT_SCO) &&
               (mForceUse[AudioSystem::FOR_RECORD] != AudioSystem::FORCE_BT_SCO))) &&
              ((mPhoneState != AudioSystem::MODE_IN_CALL) &&
+#ifdef TARGET_BOARD_FIBER
     	      (mPhoneState != AudioSystem::MODE_FACTORY_TEST) &&
+#endif
               (mPhoneState != AudioSystem::MODE_RINGTONE))) {
 
             mpClientInterface->restoreOutput(a2dpOutput);
@@ -2175,6 +2180,9 @@ void AudioPolicyManagerBase::checkA2dpSuspend()
              ((mForceUse[AudioSystem::FOR_COMMUNICATION] == AudioSystem::FORCE_BT_SCO) ||
               (mForceUse[AudioSystem::FOR_RECORD] == AudioSystem::FORCE_BT_SCO))) ||
              ((mPhoneState == AudioSystem::MODE_IN_CALL) ||
+#ifdef TARGET_BOARD_FIBER
+    	      (mPhoneState == AudioSystem::MODE_FACTORY_TEST) ||
+#endif
               (mPhoneState == AudioSystem::MODE_RINGTONE))) {
 
             mpClientInterface->suspendOutput(a2dpOutput);
@@ -2259,8 +2267,9 @@ AudioPolicyManagerBase::routing_strategy AudioPolicyManagerBase::getStrategy(
         // while key clicks are played produces a poor result
     case AudioSystem::TTS:
     case AudioSystem::MUSIC:
-
+#ifdef TARGET_BOARD_FIBER
     case AudioSystem::FM:
+#endif
         return STRATEGY_MEDIA;
     case AudioSystem::ENFORCED_AUDIBLE:
         return STRATEGY_ENFORCED_AUDIBLE;
@@ -2444,10 +2453,12 @@ audio_devices_t AudioPolicyManagerBase::getDeviceForStrategy(routing_strategy st
                 device2 = mAvailableOutputDevices & AUDIO_DEVICE_OUT_BLUETOOTH_A2DP_SPEAKER;
             }
         }
+#ifdef TARGET_BOARD_FIBER
         if ((mPhoneState == AudioSystem::MODE_FM) && (mForceUse[AudioSystem::FOR_COMMUNICATION] == AudioSystem::FORCE_SPEAKER)){//lkj
 		    device = mAvailableOutputDevices & AUDIO_DEVICE_OUT_SPEAKER;
 		    if (device) break;
         }
+#endif
         if (device2 == AUDIO_DEVICE_NONE) {
             device2 = mAvailableOutputDevices & AUDIO_DEVICE_OUT_WIRED_HEADPHONE;
         }
@@ -2668,7 +2679,9 @@ audio_devices_t AudioPolicyManagerBase::getDeviceForInputSource(int inputSource)
 
     case AUDIO_SOURCE_DEFAULT:
     case AUDIO_SOURCE_MIC:
+#ifdef TARGET_BOARD_FIBER
     case AUDIO_SOURCE_FM:
+#endif
     case AUDIO_SOURCE_VOICE_RECOGNITION:
     case AUDIO_SOURCE_HOTWORD:
     case AUDIO_SOURCE_VOICE_COMMUNICATION:
@@ -2679,8 +2692,10 @@ audio_devices_t AudioPolicyManagerBase::getDeviceForInputSource(int inputSource)
             device = AUDIO_DEVICE_IN_WIRED_HEADSET;
         } else if (mAvailableInputDevices & AUDIO_DEVICE_IN_BUILTIN_MIC) {
             device = AUDIO_DEVICE_IN_BUILTIN_MIC;
+#ifdef TARGET_BOARD_FIBER
         } else if (mAvailableInputDevices & AUDIO_DEVICE_IN_FM) {
             device = AudioSystem::DEVICE_IN_BUILTIN_MIC;
+#endif
         }
         break;
     case AUDIO_SOURCE_CAMCORDER:
@@ -2927,12 +2942,14 @@ const AudioPolicyManagerBase::VolumeCurvePoint
         sSpeakerMediaVolumeCurve, // DEVICE_CATEGORY_SPEAKER
         sDefaultMediaVolumeCurve  // DEVICE_CATEGORY_EARPIECE
     },
+#ifdef TARGET_BOARD_FIBER
     { // AUDIO_STREAM_FM
         sHeadsetSystemVolumeCurve, // DEVICE_CATEGORY_HEADSET
         sDefaultSystemVolumeCurve, // DEVICE_CATEGORY_SPEAKER
         sDefaultSystemVolumeCurve  // DEVICE_CATEGORY_EARPIECE
 
     },
+#endif
 };
 
 void AudioPolicyManagerBase::initializeVolumeCurves()
@@ -3045,7 +3062,7 @@ status_t AudioPolicyManagerBase::checkAndSetVolume(int stream,
         if (stream == AudioSystem::BLUETOOTH_SCO) {
             mpClientInterface->setStreamVolume(AudioSystem::VOICE_CALL, volume, output, delayMs);
         }
-
+#ifdef TARGET_BOARD_FIBER
     if (stream == AudioSystem::FM){
         float fmVolume;
 		fmVolume = (float)index/(float)mStreams[stream].mIndexMax;
@@ -3056,7 +3073,7 @@ status_t AudioPolicyManagerBase::checkAndSetVolume(int stream,
 		}
 	    return NO_ERROR;
      }
-
+#endif
         mpClientInterface->setStreamVolume((AudioSystem::stream_type)stream, volume, output, delayMs);
     }
 
@@ -3200,7 +3217,9 @@ bool AudioPolicyManagerBase::isInCall()
 
 bool AudioPolicyManagerBase::isStateInCall(int state) {
     return ((state == AudioSystem::MODE_IN_CALL) ||
+#ifdef TARGET_BOARD_FIBER
     	    (state == AudioSystem::MODE_FACTORY_TEST) ||
+#endif
             (state == AudioSystem::MODE_IN_COMMUNICATION));
 }
 
@@ -3402,7 +3421,11 @@ status_t AudioPolicyManagerBase::AudioInputDescriptor::dump(int fd)
 AudioPolicyManagerBase::StreamDescriptor::StreamDescriptor()
     :   mIndexMin(0), mIndexMax(1), mCanBeMuted(true)
 {
+#ifdef TARGET_BOARD_FIBER
+    mIndexCur.add(AUDIO_DEVICE_OUT_DEFAULT, 1);
+#else
     mIndexCur.add(AUDIO_DEVICE_OUT_DEFAULT, 0);
+#endif
 }
 
 int AudioPolicyManagerBase::StreamDescriptor::getVolumeIndex(audio_devices_t device)
@@ -3636,7 +3659,9 @@ const struct StringToEnum sDeviceNameToEnumTable[] = {
     STRING_TO_ENUM(AUDIO_DEVICE_IN_ANLG_DOCK_HEADSET),
     STRING_TO_ENUM(AUDIO_DEVICE_IN_DGTL_DOCK_HEADSET),
     STRING_TO_ENUM(AUDIO_DEVICE_IN_USB_ACCESSORY),
+#ifdef TARGET_BOARD_FIBER
     STRING_TO_ENUM(AUDIO_DEVICE_IN_FM),
+#endif
 };
 
 const struct StringToEnum sFlagNameToEnumTable[] = {
@@ -3667,9 +3692,11 @@ const struct StringToEnum sInChannelsNameToEnumTable[] = {
     STRING_TO_ENUM(AUDIO_CHANNEL_IN_MONO),
     STRING_TO_ENUM(AUDIO_CHANNEL_IN_STEREO),
     STRING_TO_ENUM(AUDIO_CHANNEL_IN_FRONT_BACK),
+#ifdef TARGET_BOARD_FIBER
     STRING_TO_ENUM(AUDIO_CHANNEL_IN_VOICE_UPLINK),
     STRING_TO_ENUM(AUDIO_CHANNEL_IN_VOICE_DNLINK),
     STRING_TO_ENUM(AUDIO_CHANNEL_IN_VOICE),
+#endif
 };
 
 
