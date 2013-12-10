@@ -751,7 +751,7 @@ int wifi_stop_supplicant(int p2p_supported)
 
 #define SUPPLICANT_TIMEOUT      3000000  // microseconds
 #define SUPPLICANT_TIMEOUT_STEP  100000  // microseconds
-int wifi_connect_on_socket_path(int index, const char *path)
+int wifi_connect_on_socket_path(const char *path)
 {
     char supp_status[PROPERTY_VALUE_MAX] = {'\0'};
     int  supplicant_timeout = SUPPLICANT_TIMEOUT;
