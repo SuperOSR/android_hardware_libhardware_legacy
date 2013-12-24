@@ -61,7 +61,12 @@ enum audio_source {
     AUDIO_SOURCE_CAMCORDER = 5,
     AUDIO_SOURCE_VOICE_RECOGNITION = 6,
     AUDIO_SOURCE_VOICE_COMMUNICATION = 7,
+#ifdef TARGET_BOARD_FIBER
+    AUDIO_SOURCE_FM = 9,
+    AUDIO_SOURCE_MAX = AUDIO_SOURCE_FM,
+#else
     AUDIO_SOURCE_MAX = AUDIO_SOURCE_VOICE_COMMUNICATION,
+#endif
 
     AUDIO_SOURCE_LIST_END  // must be last - used to validate audio source type
 };
@@ -81,6 +86,9 @@ public:
         ENFORCED_AUDIBLE = 7, // Sounds that cannot be muted by user and must be routed to speaker
         DTMF             = 8,
         TTS              = 9,
+#ifdef TARGET_BOARD_FIBER
+        FM               = 10,
+#endif
         NUM_STREAM_TYPES
     };
 
@@ -214,6 +222,10 @@ public:
         MODE_RINGTONE,
         MODE_IN_CALL,
         MODE_IN_COMMUNICATION,
+#ifdef TARGET_BOARD_FIBER
+	    MODE_FACTORY_TEST,
+	    MODE_FM,
+#endif
         NUM_MODES  // not a valid entry, denotes end-of-list
     };
 
@@ -262,11 +274,19 @@ public:
         DEVICE_IN_AUX_DIGITAL = 0x200000,
         DEVICE_IN_VOICE_CALL = 0x400000,
         DEVICE_IN_BACK_MIC = 0x800000,
+#ifdef TARGET_BOARD_FIBER
+        DEVICE_IN_AF = 0x1000000,
+        DEVICE_IN_FM = 0x2000000,
+#endif
         DEVICE_IN_DEFAULT = 0x80000000,
 
         DEVICE_IN_ALL = (DEVICE_IN_COMMUNICATION | DEVICE_IN_AMBIENT | DEVICE_IN_BUILTIN_MIC |
                 DEVICE_IN_BLUETOOTH_SCO_HEADSET | DEVICE_IN_WIRED_HEADSET | DEVICE_IN_AUX_DIGITAL |
-                DEVICE_IN_VOICE_CALL | DEVICE_IN_BACK_MIC | DEVICE_IN_DEFAULT)
+                DEVICE_IN_VOICE_CALL | DEVICE_IN_BACK_MIC | 
+#ifdef TARGET_BOARD_FIBER
+                DEVICE_IN_FM | 
+#endif
+                DEVICE_IN_DEFAULT)
     };
 
     // request to open a direct output with getOutput() (by opposition to sharing an output with other AudioTracks)
